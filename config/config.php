@@ -6,14 +6,14 @@
 define('APP_NAME',    'BaceBuilt Site Plan Tool');
 define('APP_VERSION', '1.0.0');
 define('COMPANY',     'BaceBuilt LLC');
-define('BASE_URL',    '/siteplans');          // Change to match your web root path
+define('BASE_URL',    '');                    // Empty = project is at web root (crm.bacebuilt.com/)
 define('BASE_PATH',   dirname(__DIR__));      // Absolute filesystem root
 
 // ─── Database ───────────────────────────────────────────────
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'bacebuilt_siteplans');
-define('DB_USER', 'root');                    // Replace with your DB user
-define('DB_PASS', '');                        // Replace with your DB password
+define('DB_NAME', 'bacebuilt_siteplans');     // ← your MySQL database name
+define('DB_USER', 'root');                    // ← your MySQL username
+define('DB_PASS', '');                        // ← your MySQL password
 define('DB_PORT', 3306);
 
 // ─── Map API Keys ────────────────────────────────────────────

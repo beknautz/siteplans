@@ -33,6 +33,11 @@
   async function captureMapImage() {
     const mapEl = document.getElementById('map');
     if (!mapEl || !window.html2canvas) return null;
+
+    // Hide drag handles — they're editor-only UI, not part of the permit plan
+    const handles = mapEl.querySelectorAll('.sp-drag-handle');
+    handles.forEach(el => { el.style.visibility = 'hidden'; });
+
     try {
       await waitForTiles();
       const canvas = await html2canvas(mapEl, {
@@ -43,11 +48,33 @@
         imageTimeout:    15000,
         backgroundColor: '#dce8f0',
         removeContainer: true,
+        onclone: (clonedDoc) => {
+          // Leaflet stores the accumulated pan offset as a CSS transform on
+          // .leaflet-map-pane (e.g. translate3d(−200px, −80px, 0)).
+          // html2canvas can misapply nested transforms, shifting vectors
+          // relative to the tile layer. Converting the transform to
+          // equivalent left/top values avoids this.
+          const pane = clonedDoc.querySelector('.leaflet-map-pane');
+          if (!pane) return;
+          const t = pane.style.transform;
+          const m = t.match(/translate3?d?\((-?[\d.]+)px,\s*(-?[\d.]+)px/);
+          if (m) {
+            pane.style.transform = '';
+            pane.style.left = m[1] + 'px';
+            pane.style.top  = m[2] + 'px';
+          }
+          // Also hide drag handles in the clone
+          clonedDoc.querySelectorAll('.sp-drag-handle').forEach(el => {
+            el.style.display = 'none';
+          });
+        },
       });
       return canvas.toDataURL('image/jpeg', 0.90);
     } catch (err) {
       console.warn('Map capture failed:', err);
       return null;
+    } finally {
+      handles.forEach(el => { el.style.visibility = ''; });
     }
   }
 

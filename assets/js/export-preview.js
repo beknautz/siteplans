@@ -49,21 +49,24 @@
         backgroundColor: '#dce8f0',
         removeContainer: true,
         onclone: (clonedDoc) => {
-          // Leaflet stores the accumulated pan offset as a CSS transform on
-          // .leaflet-map-pane (e.g. translate3d(−200px, −80px, 0)).
-          // html2canvas can misapply nested transforms, shifting vectors
-          // relative to the tile layer. Converting the transform to
-          // equivalent left/top values avoids this.
-          const pane = clonedDoc.querySelector('.leaflet-map-pane');
-          if (!pane) return;
-          const t = pane.style.transform;
-          const m = t.match(/translate3?d?\((-?[\d.]+)px,\s*(-?[\d.]+)px/);
-          if (m) {
-            pane.style.transform = '';
-            pane.style.left = m[1] + 'px';
-            pane.style.top  = m[2] + 'px';
-          }
-          // Also hide drag handles in the clone
+          // Leaflet positions the map pane AND every tile element via
+          // CSS translate3d. html2canvas misapplies nested transforms,
+          // shifting the SVG vector layer relative to tiles. Fix: convert
+          // every translate3d inside the map to explicit left/top so
+          // html2canvas sees only simple box-model positioning.
+          clonedDoc.querySelectorAll('#map [style*="translate"]').forEach(el => {
+            const t = el.style.transform;
+            if (!t) return;
+            const m = t.match(/translate3?d?\((-?[\d.]+)px,\s*(-?[\d.]+)px/);
+            if (!m) return;
+            const tx = parseFloat(m[1]);
+            const ty = parseFloat(m[2]);
+            // Strip the translate part; preserve scale() or other transforms
+            el.style.transform = t.replace(/translate3?d?\([^)]+\)\s*/g, '').trim() || 'none';
+            el.style.left = (parseFloat(el.style.left || '0') + tx) + 'px';
+            el.style.top  = (parseFloat(el.style.top  || '0') + ty) + 'px';
+          });
+          // Hide drag handles
           clonedDoc.querySelectorAll('.sp-drag-handle').forEach(el => {
             el.style.display = 'none';
           });

@@ -1,6 +1,7 @@
 <?php
 require_once dirname(__DIR__, 2) . '/includes/helpers.php';
 safe_session_start();
+require_login();
 
 $id = (int)($_GET['id'] ?? 0);
 if (!$id) redirect(BASE_URL . '/admin/site-plans/index.php');

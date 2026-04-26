@@ -48,8 +48,42 @@ $body_class  = $body_class  ?? '';
         </a>
       </li>
     </ul>
-    <span class="navbar-text text-secondary small">
-      <?= htmlspecialchars(APP_VERSION) ?>
-    </span>
+    <ul class="navbar-nav ms-auto align-items-center">
+      <?php
+      $__u = current_user();
+      if ($__u): ?>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle d-flex align-items-center gap-1" href="#"
+             data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-person-circle"></i>
+            <span class="d-none d-md-inline"><?= htmlspecialchars($__u['name']) ?></span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><span class="dropdown-item-text small text-muted"><?= htmlspecialchars($__u['email']) ?></span></li>
+            <li><hr class="dropdown-divider my-1"></li>
+            <?php if ($__u['role'] === 'admin'): ?>
+            <li>
+              <a class="dropdown-item" href="<?= BASE_URL ?>/admin/users/index.php">
+                <i class="bi bi-people me-1"></i> Manage Users
+              </a>
+            </li>
+            <li><hr class="dropdown-divider my-1"></li>
+            <?php endif; ?>
+            <li>
+              <a class="dropdown-item text-danger" href="<?= BASE_URL ?>/auth/logout.php">
+                <i class="bi bi-box-arrow-right me-1"></i> Sign Out
+              </a>
+            </li>
+          </ul>
+        </li>
+      <?php else: ?>
+        <li class="nav-item">
+          <a class="nav-link" href="<?= BASE_URL ?>/auth/login.php">Sign In</a>
+        </li>
+      <?php endif; ?>
+      <li class="nav-item ms-2">
+        <span class="navbar-text text-secondary small"><?= htmlspecialchars(APP_VERSION) ?></span>
+      </li>
+    </ul>
   </div>
 </nav>

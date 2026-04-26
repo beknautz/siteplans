@@ -3,6 +3,7 @@
 require_once dirname(__DIR__, 3) . '/config/database.php';
 require_once dirname(__DIR__, 3) . '/includes/helpers.php';
 safe_session_start();
+require_login_api();
 csrf_check();
 
 header('Content-Type: application/json');

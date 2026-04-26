@@ -106,3 +106,39 @@ function ensure_exports_dir(): bool {
     }
     return is_writable($dir);
 }
+
+// ============================================================
+// Authentication helpers
+// ============================================================
+
+function is_logged_in(): bool {
+    safe_session_start();
+    return !empty($_SESSION['user_id']);
+}
+
+function current_user(): ?array {
+    safe_session_start();
+    return $_SESSION['auth_user'] ?? null;
+}
+
+/**
+ * Redirect to login if not authenticated.
+ * Preserves the intended URL in ?next= so login can bounce back.
+ */
+function require_login(): void {
+    if (!is_logged_in()) {
+        $next = urlencode($_SERVER['REQUEST_URI'] ?? '');
+        redirect(BASE_URL . '/auth/login.php' . ($next ? '?next=' . $next : ''));
+    }
+}
+
+/**
+ * Same guard but for JSON API endpoints — returns 401 instead of redirect.
+ */
+function require_login_api(): void {
+    if (!is_logged_in()) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Not authenticated']);
+        exit;
+    }
+}

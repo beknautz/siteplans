@@ -2,6 +2,8 @@
 // API: Load all project data as JSON (used by JS on page load refresh)
 require_once dirname(__DIR__, 3) . '/config/database.php';
 require_once dirname(__DIR__, 3) . '/includes/helpers.php';
+safe_session_start();
+require_login_api();
 
 header('Content-Type: application/json');
 

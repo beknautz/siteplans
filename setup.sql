@@ -218,6 +218,22 @@ CREATE TABLE IF NOT EXISTS permit_exports (
 ) ENGINE=InnoDB;
 
 -- ============================================================
+-- users
+-- Login accounts for the site plan tool
+-- ============================================================
+CREATE TABLE IF NOT EXISTS users (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(200) NOT NULL,
+  email       VARCHAR(200) NOT NULL,
+  password    VARCHAR(255) NOT NULL COMMENT 'bcrypt hash',
+  role        ENUM('admin','user') NOT NULL DEFAULT 'user',
+  active      TINYINT(1)   NOT NULL DEFAULT 1,
+  last_login  DATETIME     NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_email (email)
+) ENGINE=InnoDB;
+
+-- ============================================================
 -- ai_analysis_queue  (placeholder for future AI integration)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS ai_analysis_queue (

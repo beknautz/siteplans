@@ -12,6 +12,7 @@
 require_once dirname(__DIR__, 3) . '/config/database.php';
 require_once dirname(__DIR__, 3) . '/includes/helpers.php';
 safe_session_start();
+require_login();
 csrf_check();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

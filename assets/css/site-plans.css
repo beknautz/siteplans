@@ -1,0 +1,278 @@
+/* ============================================================
+   BaceBuilt LLC — Permit Site Plan Tool
+   Main stylesheet
+   ============================================================ */
+
+/* ── Root variables ────────────────────────────────────────── */
+:root {
+  --bb-dark:      #1a1d21;
+  --bb-darker:    #111315;
+  --bb-blue:      #1A5276;
+  --bb-blue-lt:   #2E86C1;
+  --bb-gold:      #F39C12;
+  --bb-red:       #E74C3C;
+  --bb-green:     #27AE60;
+  --bb-purple:    #8E44AD;
+  --sidebar-w:    260px;
+  --panel-w:      280px;
+  --toolbar-h:    52px;
+}
+
+/* ── Global resets ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  background: #f0f2f5;
+  color: #212529;
+}
+
+body.editor-layout {
+  overflow: hidden;      /* no page scroll in editor */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── Navbar override ───────────────────────────────────────── */
+.navbar-brand i { font-size: 1.25rem; }
+
+/* ── Editor toolbar ────────────────────────────────────────── */
+#editorToolbar {
+  height: var(--toolbar-h);
+  flex-shrink: 0;
+  user-select: none;
+  gap: 4px;
+  border-bottom: 1px solid #343a40;
+}
+
+#editorToolbar .btn-group .btn {
+  border-radius: 4px !important;
+  min-width: 36px;
+}
+
+.tool-btn.active {
+  background-color: var(--bb-gold) !important;
+  border-color:     var(--bb-gold) !important;
+  color:            #000           !important;
+}
+
+/* ── Editor body layout ────────────────────────────────────── */
+.editor-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Sidebars ──────────────────────────────────────────────── */
+.editor-sidebar-left,
+.editor-sidebar-right {
+  flex-shrink: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #444 #1a1d21;
+}
+
+.editor-sidebar-left::-webkit-scrollbar,
+.editor-sidebar-right::-webkit-scrollbar { width: 5px; }
+
+.editor-sidebar-left::-webkit-scrollbar-thumb,
+.editor-sidebar-right::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+/* Section headings in dark sidebars */
+.editor-sidebar-left .form-label,
+.editor-sidebar-right .form-label {
+  font-size: .72rem;
+  color: #adb5bd;
+  margin-bottom: 2px;
+}
+
+/* ── Layer rows ────────────────────────────────────────────── */
+.layer-row {
+  border-radius: 4px;
+  transition: background .1s;
+}
+.layer-row:hover { background: rgba(255,255,255,.05); }
+.layer-row .form-check-input { cursor: pointer; }
+.layer-row label { cursor: pointer; font-size: .8rem; }
+
+/* ── Quick-struct grid ─────────────────────────────────────── */
+.quick-struct {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 52px;
+  height: 52px;
+  font-size: .65rem;
+  gap: 2px;
+  border-radius: 6px !important;
+  transition: background .15s, transform .1s;
+}
+.quick-struct:hover {
+  background: rgba(255,255,255,.12) !important;
+  transform: scale(1.08);
+}
+.quick-struct i { font-size: 1rem; }
+
+/* ── Map container ─────────────────────────────────────────── */
+#mapContainer { position: relative; }
+#map { width: 100%; height: 100%; }
+
+/* ── Leaflet overrides ─────────────────────────────────────── */
+.leaflet-control-attribution {
+  font-size: .65rem !important;
+  background: rgba(0,0,0,.45) !important;
+  color: #ccc !important;
+}
+.leaflet-control-attribution a { color: #87ceeb !important; }
+
+.leaflet-control-scale-line {
+  background: rgba(0,0,0,.5) !important;
+  border-color: #aaa !important;
+  color: #eee  !important;
+  font-size: .7rem !important;
+}
+
+/* ── Leaflet Draw toolbar ──────────────────────────────────── */
+.leaflet-draw-toolbar a {
+  background-color: var(--bb-dark) !important;
+  color: #eee !important;
+  border-color: #444 !important;
+}
+.leaflet-draw-toolbar a:hover { background: #2c3e50 !important; }
+
+/* ── North Arrow ───────────────────────────────────────────── */
+.north-arrow-widget {
+  width: 36px;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+
+/* ── Site plan tooltips ────────────────────────────────────── */
+.sp-tooltip {
+  background: rgba(0,0,0,.75) !important;
+  border: none !important;
+  color: #fff !important;
+  font-size: .75rem !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+}
+.leaflet-tooltip.sp-tooltip::before { border-top-color: rgba(0,0,0,.75) !important; }
+
+/* ── Measurement labels ────────────────────────────────────── */
+.sp-meas-label {
+  pointer-events: auto !important;
+  cursor: pointer;
+}
+.sp-meas-label:hover > div { background: rgba(0,0,0,.75) !important; }
+
+/* ── Text labels ───────────────────────────────────────────── */
+.sp-text-label {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+.sp-text-label div {
+  text-shadow: 0 1px 3px rgba(0,0,0,.8), 0 0 6px rgba(0,0,0,.5);
+  cursor: pointer;
+}
+
+/* ── Drag handles ──────────────────────────────────────────── */
+.sp-drag-handle { cursor: grab !important; }
+.sp-drag-handle:active { cursor: grabbing !important; }
+
+/* ── Calibration panel ─────────────────────────────────────── */
+#calibrationPanel { max-width: 400px; }
+
+/* ── Toast ─────────────────────────────────────────────────── */
+#mapToast { pointer-events: none; }
+#mapToast .toast { min-width: 220px; text-align: center; font-size: .8rem; }
+
+/* ── Properties panel inputs ───────────────────────────────── */
+.editor-sidebar-right input[type="color"] {
+  height: 32px;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.editor-sidebar-right .form-control,
+.editor-sidebar-right .form-select {
+  font-size: .8rem;
+}
+
+/* ── Project index / list pages ────────────────────────────── */
+.container-fluid > .card table th {
+  white-space: nowrap;
+}
+
+/* ── Forms (create/edit project) ───────────────────────────── */
+.card .card-header {
+  background: #f8f9fa;
+  font-size: .85rem;
+}
+
+/* ── Export / PDF page ─────────────────────────────────────── */
+.export-preview {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  padding: 24px;
+  font-family: Arial, sans-serif;
+}
+
+.export-preview .sheet-header {
+  border-bottom: 3px solid var(--bb-blue);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+
+.export-preview table th {
+  background: var(--bb-blue);
+  color: #fff;
+}
+
+/* ── Permit sheet print styles ─────────────────────────────── */
+@media print {
+  nav, #editorToolbar, .editor-sidebar-left, .editor-sidebar-right,
+  #mapToast, #calibrationPanel, footer, .no-print { display: none !important; }
+
+  body { background: #fff; overflow: visible !important; }
+  .export-preview { box-shadow: none; border: none; }
+
+  @page {
+    size: 11in 8.5in landscape;
+    margin: 0.5in;
+  }
+}
+
+/* ── Status badge helpers ──────────────────────────────────── */
+.badge { font-size: .7rem; }
+
+/* ── Responsive: hide right panel on small screens ─────────── */
+@media (max-width: 900px) {
+  .editor-sidebar-right { display: none !important; }
+  .editor-sidebar-left  { width: 220px !important; }
+}
+
+@media (max-width: 640px) {
+  .editor-sidebar-left { display: none !important; }
+  #editorToolbar .d-flex.gap-2 .btn span { display: none; }
+}
+
+/* ── Utility ───────────────────────────────────────────────── */
+.cursor-pointer { cursor: pointer; }
+.font-monospace { font-family: 'Cascadia Code', 'Fira Mono', monospace; }
+
+/* ── Animations ────────────────────────────────────────────── */
+.fade-in  { animation: fadeIn  .25s ease-in; }
+.slide-in { animation: slideIn .2s ease-out; }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideIn {
+  from { transform: translateY(-8px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}

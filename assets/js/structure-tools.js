@@ -136,14 +136,17 @@
   function makeDraggable(layer, obj) {
     if (!layer.getBounds) return;
     const center = layer.getBounds().getCenter();
-    const dragHandle = L.circleMarker(center, {
-      radius:      6,
-      color:       '#fff',
-      fillColor:   '#E74C3C',
-      fillOpacity: 0.9,
-      weight:      2,
-      draggable:   true,
-      className:   'sp-drag-handle',
+
+    // L.marker supports native Leaflet drag; L.circleMarker does not.
+    const dragHandle = L.marker(center, {
+      draggable: true,
+      icon: L.divIcon({
+        className: 'sp-drag-handle',
+        html: '<div style="width:12px;height:12px;background:#E74C3C;border:2px solid #fff;border-radius:50%;cursor:grab;margin-top:-6px;margin-left:-6px;"></div>',
+        iconSize:   [12, 12],
+        iconAnchor: [6, 6],
+      }),
+      zIndexOffset: 1000,
     });
     dragHandle._isDragHandle = true;
     dragHandle.on('click', function (e) {
@@ -154,8 +157,9 @@
     let startCenter = null;
     let startCoords = null;
 
-    dragHandle.on('mousedown', function () {
-      window.SitePlanMap.dragging.disable();
+    // dragstart fires when the user begins dragging; Leaflet automatically
+    // prevents map panning while a draggable marker is being dragged.
+    dragHandle.on('dragstart', function () {
       startCenter = dragHandle.getLatLng();
       startCoords = obj.coordinates ? (typeof obj.coordinates === 'string'
         ? JSON.parse(obj.coordinates) : obj.coordinates) : [];
@@ -172,13 +176,11 @@
     });
 
     dragHandle.on('dragend', function () {
-      window.SitePlanMap.dragging.enable();
       const newCenter = dragHandle.getLatLng();
       if (!startCenter || !startCoords.length) return;
       const dLat = newCenter.lat - startCenter.lat;
       const dLng = newCenter.lng - startCenter.lng;
       obj.coordinates = startCoords.map(c => ({ lat: c.lat + dLat, lng: c.lng + dLng }));
-      // Recalculate anchor
       if (layer.getBounds) {
         const c = layer.getBounds().getCenter();
         obj.anchor_lat = c.lat;

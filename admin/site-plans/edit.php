@@ -72,6 +72,7 @@ $js_data = json_encode([
 // PHP constants don't interpolate inside heredocs — use a variable
 $_base = BASE_URL;
 $extra_scripts = <<<HTML
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
   const SITE_PLAN_DATA = $js_data;
 </script>
@@ -163,9 +164,13 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
     <button class="btn btn-sm btn-success" id="saveAllBtn">
       <i class="bi bi-floppy2-fill me-1"></i>Save
     </button>
-    <!-- Export -->
+    <!-- Print permit sheet (captures live map) -->
+    <button class="btn btn-sm btn-info text-dark" id="printSheetBtn" title="Capture map and open print dialog">
+      <i class="bi bi-printer-fill me-1"></i>Print Sheet
+    </button>
+    <!-- Export options -->
     <a href="export.php?id=<?= $id ?>" class="btn btn-sm btn-primary" target="_blank">
-      <i class="bi bi-file-earmark-pdf-fill me-1"></i>Export PDF
+      <i class="bi bi-file-earmark-pdf-fill me-1"></i>Export
     </a>
     <!-- Status indicator -->
     <span id="saveStatus" class="small text-secondary align-self-center"></span>

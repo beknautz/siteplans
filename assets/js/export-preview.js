@@ -1,12 +1,7 @@
 /**
  * export-preview.js
- * Handles the browser-side export preview:
- *   - Captures the Leaflet map as a canvas/image snapshot via Leaflet.easyPrint or html2canvas
- *   - Assembles the permit sheet HTML for print-to-PDF
- *   - Posts to api/export-pdf.php for server-side PDF generation
- *
- * The export button on export.php also triggers server-side TCPDF/DomPDF rendering.
- * This module handles the in-editor quick-print path.
+ * Captures the live Leaflet map via html2canvas and assembles a
+ * print-ready permit sheet in a new window.
  */
 
 (function () {
@@ -14,43 +9,106 @@
 
   const D = SITE_PLAN_DATA;
 
-  // ── Print / Export helpers ─────────────────────────────────────────────────
+  // ── Map capture ───────────────────────────────────────────────────────────
 
-  /**
-   * Opens a print-ready window with the current map snapshot embedded.
-   * Because Leaflet renders to canvas tiles, we attempt to use
-   * html2canvas (loaded lazily) for a best-effort map capture.
-   */
-  function printPermitSheet() {
-    const project = D.project;
-    const now     = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  function waitForTiles() {
+    return new Promise(resolve => {
+      const map = window.SitePlanMap;
+      if (!map) { resolve(); return; }
+      // If the map is already idle, resolve immediately
+      let pending = 0;
+      map.eachLayer(layer => {
+        if (layer._tiles) {
+          Object.values(layer._tiles).forEach(t => {
+            if (!t.loaded) pending++;
+          });
+        }
+      });
+      if (pending === 0) { resolve(); return; }
+      map.once('load', resolve);
+      setTimeout(resolve, 4000); // hard timeout
+    });
+  }
 
-    // Collect object summary for legend
-    const objects       = D.objects || [];
-    const existing      = objects.filter(o => o.status === 'existing');
-    const proposed      = objects.filter(o => o.status === 'proposed');
-    const measurements  = D.measurements || [];
-    const setbacks      = D.setbacks || {};
+  async function captureMapImage() {
+    const mapEl = document.getElementById('map');
+    if (!mapEl || !window.html2canvas) return null;
+    try {
+      await waitForTiles();
+      const canvas = await html2canvas(mapEl, {
+        useCORS:         true,
+        allowTaint:      false,
+        scale:           1,
+        logging:         false,
+        imageTimeout:    15000,
+        backgroundColor: '#dce8f0',
+        removeContainer: true,
+      });
+      return canvas.toDataURL('image/jpeg', 0.90);
+    } catch (err) {
+      console.warn('Map capture failed:', err);
+      return null;
+    }
+  }
 
-    const html = buildPermitHTML(project, now, existing, proposed, measurements, setbacks);
+  // ── Main export entry point ───────────────────────────────────────────────
 
-    const win = window.open('', '_blank', 'width=1200,height=900');
+  async function printPermitSheet() {
+    const btn = document.getElementById('printSheetBtn');
+    const origHtml = btn ? btn.innerHTML : null;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Capturing…';
+    }
+
+    const project      = D.project;
+    const now          = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    const objects      = D.objects      || [];
+    const measurements = D.measurements || [];
+    const setbacks     = D.setbacks     || {};
+    const existing     = objects.filter(o => o.status === 'existing');
+    const proposed     = objects.filter(o => o.status === 'proposed');
+
+    const mapImg = await captureMapImage();
+
+    if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+
+    const html = buildPermitHTML(project, now, existing, proposed, measurements, setbacks, mapImg);
+    const win  = window.open('', '_blank', 'width=1400,height=900');
+    if (!win) { alert('Pop-up blocked — please allow pop-ups for this site.'); return; }
     win.document.write(html);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); }, 800);
+    // Give the new window time to render, then trigger print
+    setTimeout(() => win.print(), 1200);
   }
 
-  function buildPermitHTML(project, date, existing, proposed, measurements, setbacks) {
-    const existingRows = existing.map(o =>
-      `<tr><td>${esc(o.label||o.structure_type)}</td><td>Existing</td><td>${o.width_ft||'—'}</td><td>${o.length_ft||'—'}</td><td>${o.sqft ? Math.round(o.sqft) : '—'}</td></tr>`
-    ).join('');
-    const proposedRows = proposed.map(o =>
-      `<tr><td>${esc(o.label||o.structure_type)}</td><td><strong>Proposed</strong></td><td>${o.width_ft||'—'}</td><td>${o.length_ft||'—'}</td><td>${o.sqft ? Math.round(o.sqft) : '—'}</td></tr>`
-    ).join('');
-    const measRows = measurements.map(m =>
-      `<tr><td>${esc(m.label||'—')}</td><td>${m.display_ft != null ? parseFloat(m.display_ft).toFixed(1) + ' ft' : '—'}</td></tr>`
-    ).join('');
+  // ── HTML assembly ─────────────────────────────────────────────────────────
+
+  function buildPermitHTML(project, date, existing, proposed, measurements, setbacks, mapImg) {
+    const allObjects   = [...existing, ...proposed];
+    const structRows   = allObjects.map(o => `
+      <tr>
+        <td>${esc(o.label || o.structure_type)}</td>
+        <td>${esc(ucfirst(o.status))}</td>
+        <td>${o.width_ft && o.length_ft ? o.width_ft + '×' + o.length_ft : '—'}</td>
+        <td>${o.sqft ? Math.round(o.sqft).toLocaleString() : '—'}</td>
+      </tr>`).join('');
+
+    const measRows = measurements.map(m => `
+      <tr>
+        <td>${esc(m.label || '—')}</td>
+        <td><strong>${m.display_ft != null ? parseFloat(m.display_ft).toFixed(1) + ' ft' : '—'}</strong></td>
+      </tr>`).join('');
+
+    const mapSection = mapImg
+      ? `<img src="${mapImg}" style="width:100%;height:100%;object-fit:cover;display:block;" alt="Site Plan Map">`
+      : `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                     height:100%;color:#999;padding:20px;text-align:center;">
+           <div style="font-size:40pt;opacity:.15;">&#9648;</div>
+           <strong>Satellite / Site Plan Image</strong><br>
+           <span style="font-size:8pt;">Use ESRI or Mapbox basemap and reload for map capture.</span>
+         </div>`;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -58,147 +116,163 @@
 <meta charset="UTF-8">
 <title>Site Plan — ${esc(project.project_name)}</title>
 <style>
-  @page { size: 11in 8.5in landscape; margin: 0.5in; }
+  @page { size: 17in 11in landscape; margin: 0.4in; }
   * { box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; font-size: 10pt; color: #111; }
-  .sheet { width: 100%; }
-  .header { display: flex; justify-content: space-between; border-bottom: 3px solid #1A5276; padding-bottom: 8px; margin-bottom: 10px; }
-  .header h1 { font-size: 14pt; margin: 0; color: #1A5276; }
-  .header .meta { font-size: 9pt; color: #444; }
-  .main { display: grid; grid-template-columns: 1fr 280px; gap: 12px; }
-  .map-area { border: 2px solid #1A5276; min-height: 420px; background: #e8f0f7;
-              display: flex; align-items: center; justify-content: center;
-              position: relative; overflow: hidden; }
-  .map-placeholder { color: #999; font-size: 12pt; text-align: center; padding: 20px; }
-  .sidebar { display: flex; flex-direction: column; gap: 10px; }
-  .panel { border: 1px solid #ccc; border-radius: 4px; overflow: hidden; }
-  .panel-header { background: #1A5276; color: #fff; font-size: 9pt; font-weight: bold; padding: 4px 8px; }
-  .panel-body { padding: 6px 8px; font-size: 9pt; }
-  table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
-  th { background: #2E4057; color: #fff; padding: 3px 6px; text-align: left; }
-  td { padding: 3px 6px; border-bottom: 1px solid #e0e0e0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #111; margin: 0; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start;
+            border-bottom: 3px solid #1A5276; padding-bottom: 8px; margin-bottom: 10px; }
+  .header h1 { font-size: 13pt; margin: 0 0 3px 0; color: #1A5276; }
+  .meta { font-size: 8pt; color: #444; margin-top: 2px; }
+  .main { display: flex; gap: 12px; }
+  .map-area { flex: 1; border: 2px solid #1A5276; min-height: 460px; background: #dce8f0;
+               border-radius: 3px; position: relative; overflow: hidden; }
+  .north { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,.9);
+            border: 1px solid #999; border-radius: 3px; padding: 3px 6px;
+            font-size: 8pt; font-weight: bold; text-align: center; line-height: 1.3; z-index:10; }
+  .sidebar { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+  .panel { border: 1px solid #ccc; border-radius: 3px; overflow: hidden; }
+  .panel-hdr { background: #1A5276; color: #fff; padding: 3px 8px; font-weight: bold; font-size: 8.5pt; }
+  .panel-body { padding: 5px 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+  th { background: #2E4057; color: #fff; padding: 2px 5px; text-align: left; }
+  td { padding: 2px 5px; border-bottom: 1px solid #eee; }
   tr:nth-child(even) td { background: #f5f8fb; }
-  .legend-row { display: flex; align-items: center; gap: 6px; margin: 2px 0; font-size: 8.5pt; }
-  .swatch { width: 16px; height: 12px; border: 1px solid #666; border-radius: 2px; flex-shrink: 0; }
-  .footer { margin-top: 12px; border-top: 1px solid #ccc; padding-top: 6px; font-size: 8pt; color: #666; }
-  .north { position: absolute; top: 10px; right: 10px; font-size: 9pt; font-weight: bold;
-           background: rgba(255,255,255,.85); border: 1px solid #999; border-radius: 3px;
-           padding: 4px 6px; text-align: center; line-height: 1.2; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  .legend-row { display: flex; align-items: center; gap: 5px; margin: 2px 0; font-size: 8pt; }
+  .swatch { width: 14px; height: 10px; border: 1px solid; flex-shrink: 0; }
+  .footer { margin-top: 8px; border-top: 1px solid #ccc; padding-top: 5px; font-size: 7.5pt; color: #666; }
+  @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head>
 <body>
-<div class="sheet">
-  <!-- HEADER -->
-  <div class="header">
-    <div>
-      <h1>BaceBuilt LLC — Permit Site Plan</h1>
-      <div class="meta">
-        <strong>Project:</strong> ${esc(project.project_name)} &nbsp;|&nbsp;
-        <strong>Client:</strong> ${esc(project.client_name)} &nbsp;|&nbsp;
-        <strong>Date:</strong> ${esc(date)}
-      </div>
-      <div class="meta">
-        <strong>Address:</strong> ${esc(project.site_address)}, ${esc(project.city)}, ${esc(project.state)} ${esc(project.zip)} &nbsp;|&nbsp;
-        <strong>Parcel:</strong> ${esc(project.parcel_number||'—')} &nbsp;|&nbsp;
-        <strong>Jurisdiction:</strong> ${esc(project.jurisdiction)}
-      </div>
+
+<div class="header">
+  <div>
+    <h1>BaceBuilt LLC &mdash; Permit Site Plan</h1>
+    <div class="meta">
+      <strong>Project:</strong> ${esc(project.project_name)} &nbsp;|&nbsp;
+      <strong>Client:</strong> ${esc(project.client_name)} &nbsp;|&nbsp;
+      <strong>Date:</strong> ${esc(date)}
     </div>
-    <div style="text-align:right;">
-      <div style="font-weight:bold;color:#1A5276;">BaceBuilt LLC</div>
-      <div class="meta">Construction &amp; Site Development</div>
-      <div class="meta">Scale: Per calibration &nbsp;|&nbsp; North: ↑</div>
+    <div class="meta">
+      <strong>Address:</strong> ${esc(project.site_address)}, ${esc(project.city)}, ${esc(project.state)} ${esc(project.zip)}
+      &nbsp;|&nbsp; <strong>Parcel:</strong> ${esc(project.parcel_number || '—')}
+      &nbsp;|&nbsp; <strong>Jurisdiction:</strong> ${esc(project.jurisdiction)}
+      &nbsp;|&nbsp; <strong>Type:</strong> ${esc(project.project_type || '')}
     </div>
   </div>
-
-  <div class="main">
-    <!-- MAP AREA -->
-    <div class="map-area" id="exportMapArea">
-      <div class="map-placeholder">
-        <div style="font-size:48pt;opacity:.15;">🗺</div>
-        <div>Satellite / Site Plan Image</div>
-        <div style="font-size:9pt;margin-top:8px;color:#aaa;">
-          (Use browser Print → Save as PDF from the editor map page<br>for a full map capture with all layers)
-        </div>
-      </div>
-      <div class="north">↑<br>N</div>
-    </div>
-
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-      <!-- Legend -->
-      <div class="panel">
-        <div class="panel-header">Legend</div>
-        <div class="panel-body">
-          <div class="legend-row"><div class="swatch" style="background:#AED6F1;border-color:#1A5276;"></div> Existing House</div>
-          <div class="legend-row"><div class="swatch" style="background:#A9DFBF;border-color:#1E8449;border-style:dashed;"></div> Proposed ADU/Structure</div>
-          <div class="legend-row"><div class="swatch" style="background:#D5D8DC;border-color:#566573;"></div> Garage</div>
-          <div class="legend-row"><div class="swatch" style="background:transparent;border-color:#8E44AD;border-style:dashed;"></div> Parcel Boundary</div>
-          <div class="legend-row"><div class="swatch" style="background:transparent;border-color:#E74C3C;border-style:dashed;"></div> Setback Lines</div>
-          <div class="legend-row"><div class="swatch" style="background:transparent;border-color:#E74C3C;"></div> Measurements</div>
-          <div class="legend-row"><div class="swatch" style="background:#CCD1D1;border-color:#717D7E;"></div> Driveway</div>
-          <div class="legend-row"><div class="swatch" style="background:#85C1E9;border-color:#1A5276;"></div> Well / Water</div>
-          <div class="legend-row"><div class="swatch" style="background:#A9CCE3;border-color:#1A5276;"></div> Septic</div>
-        </div>
-      </div>
-
-      <!-- Setback Rules -->
-      <div class="panel">
-        <div class="panel-header">Setback Requirements</div>
-        <div class="panel-body">
-          <table>
-            <tr><th>Type</th><th>Distance</th></tr>
-            <tr><td>Front</td><td>${setbacks.front_ft || 20} ft</td></tr>
-            <tr><td>Rear</td><td>${setbacks.rear_ft  || 5}  ft</td></tr>
-            <tr><td>Side</td><td>${setbacks.side_ft  || 5}  ft</td></tr>
-            <tr><td>Accessory</td><td>${setbacks.accessory_ft || 5} ft</td></tr>
-            <tr><td>Well Separation</td><td>${setbacks.well_sep_ft || 100} ft</td></tr>
-            <tr><td>Septic Separation</td><td>${setbacks.septic_sep_ft || 100} ft</td></tr>
-          </table>
-        </div>
-      </div>
-
-      <!-- Structures -->
-      <div class="panel">
-        <div class="panel-header">Structures</div>
-        <div class="panel-body">
-          <table>
-            <tr><th>Label</th><th>Status</th><th>W</th><th>L</th><th>SF</th></tr>
-            ${existingRows}
-            ${proposedRows}
-          </table>
-        </div>
-      </div>
-
-      <!-- Measurements -->
-      ${measRows ? `<div class="panel">
-        <div class="panel-header">Measurements</div>
-        <div class="panel-body">
-          <table><tr><th>Label</th><th>Distance</th></tr>${measRows}</table>
-        </div>
-      </div>` : ''}
-    </div>
-  </div>
-
-  <!-- FOOTER / DISCLAIMER -->
-  <div class="footer">
-    <strong>Disclaimer:</strong>
-    Site plan is for permit application and planning use only. Final survey verification may be required by the jurisdiction.
-    Dimensions are approximate based on satellite imagery calibration. Not for construction staking. &copy; BaceBuilt LLC ${new Date().getFullYear()}.
-    &nbsp;&nbsp;&nbsp;
-    <strong>Project Notes:</strong> ${esc(project.notes || '—')}
+  <div style="text-align:right;min-width:140px;">
+    <div style="font-weight:bold;color:#1A5276;font-size:11pt;">BaceBuilt LLC</div>
+    <div class="meta">Construction &amp; Site Development</div>
+    <div class="meta">Scale: Per calibration &nbsp;|&nbsp; ↑ North</div>
+    <div class="meta">Paper: LEDGER Landscape</div>
   </div>
 </div>
+
+<div class="main">
+  <div class="map-area">
+    ${mapSection}
+    <div class="north">↑<br>N</div>
+  </div>
+
+  <div class="sidebar">
+    <div class="panel">
+      <div class="panel-hdr">Legend</div>
+      <div class="panel-body">
+        ${legendHTML()}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hdr">Setback Requirements</div>
+      <div class="panel-body">
+        <table>
+          <tr><td>Front Setback</td><td><strong>${setbacks.front_ft || 20} ft</strong></td></tr>
+          <tr><td>Rear Setback</td><td><strong>${setbacks.rear_ft || 5} ft</strong></td></tr>
+          <tr><td>Side Setback</td><td><strong>${setbacks.side_ft || 5} ft</strong></td></tr>
+          <tr><td>Accessory</td><td><strong>${setbacks.accessory_ft || 5} ft</strong></td></tr>
+          <tr><td>Well Separation</td><td><strong>${setbacks.well_sep_ft || 100} ft</strong></td></tr>
+          <tr><td>Septic Separation</td><td><strong>${setbacks.septic_sep_ft || 100} ft</strong></td></tr>
+        </table>
+      </div>
+    </div>
+
+    ${structRows ? `<div class="panel">
+      <div class="panel-hdr">Structures</div>
+      <div class="panel-body">
+        <table>
+          <tr><th>Label</th><th>Status</th><th>W×L</th><th>SF</th></tr>
+          ${structRows}
+        </table>
+      </div>
+    </div>` : ''}
+
+    ${measRows ? `<div class="panel">
+      <div class="panel-hdr">Measurements</div>
+      <div class="panel-body">
+        <table>
+          <tr><th>Label</th><th>Distance</th></tr>
+          ${measRows}
+        </table>
+      </div>
+    </div>` : ''}
+  </div>
+</div>
+
+<div class="footer">
+  <strong>Disclaimer:</strong>
+  Site plan is for permit application and planning use only. Final survey verification may be required by the jurisdiction.
+  Dimensions are approximate based on satellite imagery calibration. Not for construction staking.
+  &copy; BaceBuilt LLC ${new Date().getFullYear()}.
+  &nbsp;&mdash;&nbsp;
+  <strong>Notes:</strong> ${esc(project.notes || '—')}
+</div>
+
 </body></html>`;
+  }
+
+  function legendHTML() {
+    const items = [
+      ['#AED6F1','#1A5276','solid',  'Existing House'],
+      ['#A9DFBF','#1E8449','dashed', 'Proposed Structure'],
+      ['#D5D8DC','#566573','solid',  'Garage / Accessory'],
+      ['transparent','#8E44AD','dashed','Parcel Boundary'],
+      ['transparent','#E74C3C','dashed','Setback Lines'],
+      ['transparent','#E74C3C','solid', 'Measurements'],
+      ['#CCD1D1','#717D7E','solid',  'Driveway'],
+      ['#85C1E9','#1A5276','solid',  'Well / Water'],
+      ['#A9CCE3','#1A5276','solid',  'Septic'],
+    ];
+    return items.map(([fill, brd, dash, lbl]) =>
+      `<div class="legend-row">
+         <div class="swatch" style="background:${fill};border-color:${brd};border-style:${dash};"></div>
+         ${esc(lbl)}
+       </div>`
+    ).join('');
   }
 
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // ── Wire up export button if present ──────────────────────────────────────
+  function ucfirst(s) {
+    s = String(s || '');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // ── Wire up buttons ───────────────────────────────────────────────────────
 
   document.getElementById('printSheetBtn')?.addEventListener('click', printPermitSheet);
+
+  // Auto-export mode: triggered when editor opens with ?export=1
+  if (new URLSearchParams(location.search).get('export') === '1') {
+    const waitForMap = setInterval(() => {
+      if (window.SitePlanMap && window.SitePlanLayers) {
+        clearInterval(waitForMap);
+        // Extra delay to let tiles render
+        setTimeout(printPermitSheet, 2500);
+      }
+    }, 200);
+  }
 
   // ── Expose ─────────────────────────────────────────────────────────────────
   window.SitePlanExport = { printPermitSheet, buildPermitHTML };

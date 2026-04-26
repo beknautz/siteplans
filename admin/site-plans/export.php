@@ -78,9 +78,9 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
               <button type="submit" name="action" value="pdf" class="btn btn-danger">
                 <i class="bi bi-file-earmark-pdf me-1"></i> Generate PDF
               </button>
-              <button type="button" class="btn btn-outline-primary" onclick="window.SitePlanExport?.printPermitSheet()">
-                <i class="bi bi-printer me-1"></i> Browser Print Preview
-              </button>
+              <a href="edit.php?id=<?= $id ?>&export=1" target="_blank" class="btn btn-outline-primary">
+                <i class="bi bi-printer me-1"></i> Browser Print Preview (with Map)
+              </a>
             </div>
           </form>
         </div>

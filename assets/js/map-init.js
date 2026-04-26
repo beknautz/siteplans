@@ -18,6 +18,7 @@
         attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
         maxZoom: 21,
         maxNativeZoom: 19,
+        crossOrigin: true,
       }
     ),
     osm: L.tileLayer(
@@ -25,6 +26,7 @@
       {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
+        crossOrigin: true,
       }
     ),
     mapbox: null,   // built below if token present
@@ -39,6 +41,7 @@
         zoomOffset: -1,
         attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a>',
         maxZoom: 22,
+        crossOrigin: true,
       }
     );
   }
@@ -46,7 +49,7 @@
   if (D.googleKey) {
     TILE_LAYERS.google = L.tileLayer(
       `https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}&key=${D.googleKey}`,
-      { attribution: '&copy; Google Maps', maxZoom: 21 }
+      { attribution: '&copy; Google Maps', maxZoom: 21, crossOrigin: true }
     );
   }
 

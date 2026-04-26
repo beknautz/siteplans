@@ -34,12 +34,35 @@
     const mapEl = document.getElementById('map');
     if (!mapEl || !window.html2canvas) return null;
 
-    // Hide drag handles — they're editor-only UI, not part of the permit plan
+    await waitForTiles();
+
+    // ── Step 1: freeze the DOM before html2canvas touches it ─────────────────
+    // Leaflet positions tiles and the map pane via CSS translate3d.
+    // html2canvas reads inline styles from a clone but finalises layout
+    // before onclone modifications propagate on some browsers, so the
+    // overlay stays shifted. Fix: convert every translate3d to equivalent
+    // left/top on the LIVE DOM, capture, then restore.
+    const saved = [];
+    mapEl.querySelectorAll('[style*="translate"]').forEach(el => {
+      const t = el.style.transform;
+      if (!t) return;
+      const m = t.match(/translate3?d?\((-?[\d.]+)px,\s*(-?[\d.]+)px/);
+      if (!m) return;
+      const tx = parseFloat(m[1]);
+      const ty = parseFloat(m[2]);
+      saved.push({ el, transform: t, left: el.style.left, top: el.style.top });
+      el.style.transform = t.replace(/translate3?d?\([^)]+\)\s*/g, '').trim() || 'none';
+      el.style.left = (parseFloat(el.style.left || '0') + tx) + 'px';
+      el.style.top  = (parseFloat(el.style.top  || '0') + ty) + 'px';
+    });
+
+    // Hide drag handles (editor-only UI)
     const handles = mapEl.querySelectorAll('.sp-drag-handle');
     handles.forEach(el => { el.style.visibility = 'hidden'; });
 
+    // ── Step 2: capture ───────────────────────────────────────────────────────
+    let dataUrl = null;
     try {
-      await waitForTiles();
       const canvas = await html2canvas(mapEl, {
         useCORS:         true,
         allowTaint:      false,
@@ -47,38 +70,21 @@
         logging:         false,
         imageTimeout:    15000,
         backgroundColor: '#dce8f0',
-        removeContainer: true,
-        onclone: (clonedDoc) => {
-          // Leaflet positions the map pane AND every tile element via
-          // CSS translate3d. html2canvas misapplies nested transforms,
-          // shifting the SVG vector layer relative to tiles. Fix: convert
-          // every translate3d inside the map to explicit left/top so
-          // html2canvas sees only simple box-model positioning.
-          clonedDoc.querySelectorAll('#map [style*="translate"]').forEach(el => {
-            const t = el.style.transform;
-            if (!t) return;
-            const m = t.match(/translate3?d?\((-?[\d.]+)px,\s*(-?[\d.]+)px/);
-            if (!m) return;
-            const tx = parseFloat(m[1]);
-            const ty = parseFloat(m[2]);
-            // Strip the translate part; preserve scale() or other transforms
-            el.style.transform = t.replace(/translate3?d?\([^)]+\)\s*/g, '').trim() || 'none';
-            el.style.left = (parseFloat(el.style.left || '0') + tx) + 'px';
-            el.style.top  = (parseFloat(el.style.top  || '0') + ty) + 'px';
-          });
-          // Hide drag handles
-          clonedDoc.querySelectorAll('.sp-drag-handle').forEach(el => {
-            el.style.display = 'none';
-          });
-        },
       });
-      return canvas.toDataURL('image/jpeg', 0.90);
+      dataUrl = canvas.toDataURL('image/jpeg', 0.90);
     } catch (err) {
       console.warn('Map capture failed:', err);
-      return null;
-    } finally {
-      handles.forEach(el => { el.style.visibility = ''; });
     }
+
+    // ── Step 3: restore DOM unconditionally ───────────────────────────────────
+    saved.forEach(({ el, transform, left, top }) => {
+      el.style.transform = transform;
+      el.style.left      = left;
+      el.style.top       = top;
+    });
+    handles.forEach(el => { el.style.visibility = ''; });
+
+    return dataUrl;
   }
 
   // ── Main export entry point ───────────────────────────────────────────────

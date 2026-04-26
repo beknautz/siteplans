@@ -68,16 +68,18 @@ $js_data = json_encode([
     'googleKey'    => GOOGLE_MAPS_KEY,
 ], JSON_HEX_TAG | JSON_HEX_APOS);
 
+// PHP constants don't interpolate inside heredocs — use a variable
+$_base = BASE_URL;
 $extra_scripts = <<<HTML
 <script>
   const SITE_PLAN_DATA = $js_data;
 </script>
-<script src="<?= BASE_URL ?>/assets/js/map-init.js"></script>
-<script src="<?= BASE_URL ?>/assets/js/layer-manager.js"></script>
-<script src="<?= BASE_URL ?>/assets/js/drawing-tools.js"></script>
-<script src="<?= BASE_URL ?>/assets/js/structure-tools.js"></script>
-<script src="<?= BASE_URL ?>/assets/js/measurement-tools.js"></script>
-<script src="<?= BASE_URL ?>/assets/js/export-preview.js"></script>
+<script src="$_base/assets/js/map-init.js"></script>
+<script src="$_base/assets/js/layer-manager.js"></script>
+<script src="$_base/assets/js/drawing-tools.js"></script>
+<script src="$_base/assets/js/structure-tools.js"></script>
+<script src="$_base/assets/js/measurement-tools.js"></script>
+<script src="$_base/assets/js/export-preview.js"></script>
 HTML;
 
 require_once dirname(__DIR__, 2) . '/includes/header.php';

@@ -2,7 +2,7 @@
 // API: Soft-delete or hard-delete a site plan object
 require_once dirname(__DIR__, 3) . '/config/database.php';
 require_once dirname(__DIR__, 3) . '/includes/helpers.php';
-session_start();
+safe_session_start();
 
 header('Content-Type: application/json');
 

@@ -2,7 +2,7 @@
 // API: Create or update a site plan object (structure, polygon, line, label, etc.)
 require_once dirname(__DIR__, 3) . '/config/database.php';
 require_once dirname(__DIR__, 3) . '/includes/helpers.php';
-session_start();
+safe_session_start();
 csrf_check();
 
 header('Content-Type: application/json');

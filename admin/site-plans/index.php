@@ -1,6 +1,6 @@
 <?php
 require_once dirname(__DIR__, 2) . '/includes/helpers.php';
-session_start();
+safe_session_start();
 
 $page_title = 'Site Plan Projects';
 $search  = trim($_GET['q'] ?? '');

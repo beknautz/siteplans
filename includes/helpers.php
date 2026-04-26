@@ -5,6 +5,13 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 
+// Safe session start — won't crash on shared hosting with restricted session paths
+function safe_session_start(): void {
+    if (session_status() !== PHP_SESSION_NONE) return;
+    // Suppress warnings; on shared hosts the save path may need no value (use default)
+    @session_start();
+}
+
 // ============================================================
 // General helper functions
 // ============================================================
@@ -19,7 +26,7 @@ function redirect(string $url): void {
 }
 
 function csrf_token(): string {
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    safe_session_start();
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
@@ -27,7 +34,7 @@ function csrf_token(): string {
 }
 
 function csrf_check(): void {
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    safe_session_start();
     $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
         http_response_code(403);
@@ -36,19 +43,19 @@ function csrf_check(): void {
 }
 
 function flash_set(string $key, string $msg): void {
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    safe_session_start();
     $_SESSION['flash'][$key] = $msg;
 }
 
 function flash_get(string $key): ?string {
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    safe_session_start();
     $msg = $_SESSION['flash'][$key] ?? null;
     unset($_SESSION['flash'][$key]);
     return $msg;
 }
 
 function flash_html(): string {
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    safe_session_start();
     if (empty($_SESSION['flash'])) return '';
     $html = '';
     foreach ($_SESSION['flash'] as $type => $msg) {
